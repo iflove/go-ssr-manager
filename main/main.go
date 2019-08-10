@@ -104,8 +104,17 @@ func startTimer() {
 	if e != nil {
 		ginLog("[cron]", "添加每天定时重启任务失败: "+e.Error())
 	}
+	//Seconds Minutes Hours (Day of month) Month (Day of week)
+	id1, e := c.AddFunc("0 0 1 30 * *", func() {
+		ginLog("[cron]", "Every monthly")
+		//TODO update all port
+
+	})
+	if e != nil {
+		ginLog("[cron]", "添加每月定时修改端口任务失败: "+e.Error())
+	}
 	c.Start()
-	ginLog("[cron]", "schedule EntryID: "+fmt.Sprintf("%d", id))
+	ginLog("[cron]", "schedule EntryID: "+fmt.Sprintf("%d, %d", id, id1))
 }
 
 func log(r *gin.Engine) {
@@ -156,7 +165,7 @@ func makeApi(r *gin.Engine) {
 				pwd := pwgen.AlphaNum(10)
 				user := CreateUser(name, pwd, UserTypeNormal)
 				var portPwd = make(map[string]string)
-				portPwd[ user.Port] = pwd
+				portPwd[user.Port] = pwd
 				e := HandleConfigJson(ConfigJsonPath, portPwd, true)
 				if e != nil {
 					c.IndentedJSON(http.StatusOK, gin.H{"code": "0", "msg": e.Error()})
@@ -207,7 +216,7 @@ func makeApi(r *gin.Engine) {
 			db.First(&userInfo, &UserInfo{Token: token, Name: name})
 			if userInfo.Name == name && userInfo.Type == UserTypeSu {
 				//管理员
-				var users [] UserInfo
+				var users []UserInfo
 				db.Find(&users)
 				configs := make([]ShadowsocksConfig, 0)
 				for _, v := range users {
@@ -288,7 +297,7 @@ func initDb() {
 		pwd := pwgen.AlphaNum(10)
 		suUserInfo := CreateUser(RootName, pwd, UserTypeSu)
 		var portPwd = make(map[string]string)
-		portPwd[ suUserInfo.Port] = pwd
+		portPwd[suUserInfo.Port] = pwd
 		e := HandleConfigJson(ConfigJsonPath, portPwd, true)
 		if e != nil {
 			ginLog("[initDb]", "create Manager user err "+e.Error())

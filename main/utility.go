@@ -9,8 +9,16 @@ import (
 	"time"
 )
 
-func str(a ...interface{}) string {
-	return fmt.Sprintf("%d", a)
+func str(a interface{}) string {
+	switch a.(type) {
+	case int:
+	case int8:
+	case int16:
+	case int32:
+	case int64:
+		return fmt.Sprintf("%d", a)
+	}
+	return ""
 }
 
 func makeTimestamp() int64 {
