@@ -6,16 +6,16 @@ import (
 	"io"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 )
 
+func typeof(v interface{}) string {
+	return fmt.Sprintf("%T", v)
+}
+
 func str(a interface{}) string {
-	switch a.(type) {
-	case int:
-	case int8:
-	case int16:
-	case int32:
-	case int64:
+	if strings.Contains(typeof(a), "int") {
 		return fmt.Sprintf("%d", a)
 	}
 	return ""
