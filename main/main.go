@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/chr4/pwgen"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 	"time"
 )
 
@@ -85,6 +87,8 @@ func main() {
 	defer db.Close()
 	startTimer()
 
+	go iftopListen()
+
 	r := gin.Default()
 
 	log(r)
@@ -92,6 +96,41 @@ func main() {
 	makeApi(r)
 
 	r.Run(ADDR) // listen and serve on 0.0.0.0:8080
+}
+
+func iftopListen() {
+	ginLog("runtime", "NumCPU: "+str(runtime.NumCPU()))
+	ginLog("runtime", "NumGoroutine: "+str(runtime.NumGoroutine()))
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	sh := "iftop -nNPt | grep -E '25825|23089|23156|64022|40387|33506|49815'"
+	cmd := exec.Command("bash", "-c", sh)
+	stdoutIn, _ := cmd.StdoutPipe()
+	stderrIn, _ := cmd.StderrPipe()
+	var errStdout, errStderr error
+	stdout := io.MultiWriter(&stdoutBuf)
+	stderr := io.MultiWriter(&stderrBuf)
+
+	err := cmd.Start()
+	if err != nil {
+		ginLog("Fatalf", fmt.Sprintf("cmd.Start() failed with '%s'\n", err))
+	}
+	go func() {
+		_, errStdout = io.Copy(stdout, stdoutIn)
+	}()
+	go func() {
+		_, errStderr = io.Copy(stderr, stderrIn)
+	}()
+	err = cmd.Wait()
+	if err != nil {
+		ginLog("Fatalf", fmt.Sprintf("cmd.Run() failed with %s\n", err))
+	}
+	if errStdout != nil || errStderr != nil {
+		ginLog("Fatalf", fmt.Sprintf("failed to capture stdout or stderr\n"))
+	}
+	outStr, _ := string(stdoutBuf.Bytes()), string(stderrBuf.Bytes())
+	ginLog("iftop", fmt.Sprintf("%s", outStr))
+
 }
 
 func startTimer() {
