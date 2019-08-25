@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"github.com/chr4/pwgen"
@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -98,25 +99,44 @@ func main() {
 	r.Run(ADDR) // listen and serve on 0.0.0.0:8080
 }
 
+func copyAndCapture(w io.Writer, r io.Reader) {
+	scanner := bufio.NewScanner(r)
+	var users []UserInfo
+	db.Find(&users)
+
+	for scanner.Scan() {
+		text := scanner.Text()
+		if users != nil {
+			for _, user := range users {
+				if strings.Contains(text, user.Port) {
+					ginLog("iftop", user.Name+"=> "+text)
+				}
+			}
+		}
+	}
+	// never reached
+	panic(true)
+}
+
 func iftopListen() {
 	ginLog("runtime", "NumCPU: "+str(runtime.NumCPU()))
 	ginLog("runtime", "NumGoroutine: "+str(runtime.NumGoroutine()))
 
-	var stdoutBuf, stderrBuf bytes.Buffer
 	sh := "iftop -nNPt | grep -E '25825|23089|23156|64022|40387|33506|49815'"
+	//sh := "ping baidu.com"
 	cmd := exec.Command("bash", "-c", sh)
 	stdoutIn, _ := cmd.StdoutPipe()
 	stderrIn, _ := cmd.StderrPipe()
-	var errStdout, errStderr error
-	stdout := io.MultiWriter(&stdoutBuf)
-	stderr := io.MultiWriter(&stderrBuf)
+	var errStderr error
+	stdout := gin.DefaultWriter
+	stderr := gin.DefaultErrorWriter
 
 	err := cmd.Start()
 	if err != nil {
 		ginLog("Fatalf", fmt.Sprintf("cmd.Start() failed with '%s'\n", err))
 	}
 	go func() {
-		_, errStdout = io.Copy(stdout, stdoutIn)
+		copyAndCapture(stdout, stdoutIn)
 	}()
 	go func() {
 		_, errStderr = io.Copy(stderr, stderrIn)
@@ -125,12 +145,9 @@ func iftopListen() {
 	if err != nil {
 		ginLog("Fatalf", fmt.Sprintf("cmd.Run() failed with %s\n", err))
 	}
-	if errStdout != nil || errStderr != nil {
+	if errStderr != nil {
 		ginLog("Fatalf", fmt.Sprintf("failed to capture stdout or stderr\n"))
 	}
-	outStr, _ := string(stdoutBuf.Bytes()), string(stderrBuf.Bytes())
-	ginLog("iftop", fmt.Sprintf("%s", outStr))
-
 }
 
 func startTimer() {
